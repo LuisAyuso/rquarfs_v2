@@ -1,0 +1,12 @@
+[package]
+name = "rquarfs_v2"
+version = "0.1.0"
+authors = ["Luis F. Ayuso <luis.f.ayuso@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glium = "0.29.1"
+anyhow = "1.0.41"
+glam  ="0.16.0"
