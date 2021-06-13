@@ -37,7 +37,7 @@ impl RedTriangle {
                 position: [0.5, -0.25],
             },
         ];
-        let vertex_buffer = glium::VertexBuffer::persistent(facade, &shape).unwrap();
+        let vertices = glium::VertexBuffer::persistent(facade, &shape).unwrap();
         let vertex_shader_src = r#"
     #version 140
 
@@ -60,10 +60,7 @@ impl RedTriangle {
             glium::Program::from_source(facade, vertex_shader_src, fragment_shader_src, None)
                 .unwrap();
 
-        RedTriangle {
-            vertices: vertex_buffer,
-            program: program,
-        }
+        RedTriangle { vertices, program }
     }
 }
 
@@ -273,15 +270,18 @@ fn main() -> Result<()> {
         target.finish().unwrap();
 
         *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
-        match ev {
-            glutin::event::Event::WindowEvent { event, .. } => match event {
+        if let glutin::event::Event::WindowEvent { event, .. } = ev {
+            match event {
                 glutin::event::WindowEvent::CloseRequested => {
-                    *control_flow = glutin::event_loop::ControlFlow::Exit;
-                    return;
+                    *control_flow = glutin::event_loop::ControlFlow::Exit
                 }
-                _ => return,
-            },
-            _ => (),
+                glutin::event::WindowEvent::Resized(_) => (),
+                glutin::event::WindowEvent::MouseInput { .. } => (),
+                glutin::event::WindowEvent::MouseWheel { .. } => (),
+                glutin::event::WindowEvent::KeyboardInput { .. } => (),
+
+                _ => (),
+            }
         }
     });
 }
