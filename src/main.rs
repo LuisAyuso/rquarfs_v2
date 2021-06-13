@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
 use glium::*;
+use image::EncodableLayout;
+use resource::resource;
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -96,7 +98,18 @@ impl Renderable for RedTriangle {
     }
 }
 
-fn main() {
+fn load_image(raw_data: &[u8]) -> Result<image::DynamicImage> {
+    use image::io::*;
+
+    let reader = Reader::new(std::io::Cursor::new(raw_data))
+        .with_guessed_format()
+        .context("could not read buffer")?;
+
+    assert_eq!(reader.format(), Some(image::ImageFormat::Png));
+    reader.decode().context("must decode")
+}
+
+fn main() -> Result<()> {
     let event_loop = glutin::event_loop::EventLoop::new();
     let wb = glutin::window::WindowBuilder::new();
     let cb = glutin::ContextBuilder::new();
@@ -105,9 +118,18 @@ fn main() {
     let mut inabox = Box::new(RedTriangle::new(&display));
     let mut last_time = std::time::Instant::now();
 
+    let asset = resource!("assets/D18.png");
+    load_image(asset.as_bytes())?;
+    //    let mut reader = image::io::Reader::new(Cursor::new(asset.as_bytes()))
+    //        .with_guessed_format()
+    //        .expect("Cursor io never fails");
+    //    assert_eq!(reader.format(), Some(ImageFormat::Pnm));
+    //
+
     event_loop.run(move |ev, _, control_flow| {
         let now = std::time::Instant::now();
         let delta = now - last_time;
+        last_time = now;
         let next_frame_time =
             std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
 
