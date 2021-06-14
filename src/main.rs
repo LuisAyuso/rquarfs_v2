@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
-use glium::*;
+use glium::{backend::Facade, *};
 use image::{DynamicImage, EncodableLayout, GenericImageView};
-use resource::resource;
+use resource::{resource, resource_str};
 
 #[derive(Copy, Clone)]
 struct Vertex {
@@ -37,7 +37,7 @@ impl RedTriangle {
                 position: [0.5, -0.25],
             },
         ];
-        let vertices = glium::VertexBuffer::persistent(facade, &shape).unwrap();
+        let vertices = glium::VertexBuffer::new(facade, &shape).unwrap();
         let vertex_shader_src = r#"
     #version 140
 
@@ -86,7 +86,7 @@ impl Renderable for RedTriangle {
         let mut data = self
             .vertices
             .read()
-            .context("could not read opengl buffer")?;
+            .context("could not read OpenGL buffer")?;
 
         data[0].position[0] = (delta.as_nanos() as f32).cos();
         self.vertices.write(&data);
@@ -131,63 +131,17 @@ fn make_things_from_image<F: glium::backend::Facade>(
 }
 
 struct ImageQuad {
-    vertices: glium::vertex::VertexBuffer<Vertex>,
-    indices: glium::IndexBuffer<u32>,
     texture: glium::texture::Texture2d,
     program: glium::program::Program,
 }
 
 impl ImageQuad {
     fn new<F: glium::backend::Facade>(facade: &F, img: &image::DynamicImage) -> Result<ImageQuad> {
-        let shape = vec![
-            Vertex {
-                position: [0.0, 0.0],
-            },
-            Vertex {
-                position: [0.0, 1.0],
-            },
-            Vertex {
-                position: [0.1, 1.0],
-            },
-            Vertex {
-                position: [0.1, 0.0],
-            },
-        ];
-        let vertices = glium::VertexBuffer::persistent(facade, &shape).context("no vertices")?;
-        let data = [0u32, 1, 2, 0, 2, 3];
+        let vertex_shader_src = resource_str!("shaders/quad_vert.glsl");
+        let fragment_shader_src = resource_str!("shaders/color_coords_frag.glsl");
 
-        let indices =
-            glium::IndexBuffer::new(facade, glium::index::PrimitiveType::TrianglesList, &data)
-                .context("no index")?;
-
-        let vertex_shader_src = r#"
-    #version 430
-
-    in vec2 position;
-    
-    smooth out vec2 coords;
-    
-    void main() {
-        gl_Position = vec4(position,0.0, 1.0); 
-        coords = position;
-    }
-        
-"#;
-        let fragment_shader_src = r#"
-    #version 430
-
-    uniform sampler2D image;
-    
-    smooth in vec2 coords;
-    out vec4 frag_color;
-    
-    void main() {
-        frag_color = texture(image, coords);
-    }
-        
-"#;
         let program =
-            glium::Program::from_source(facade, vertex_shader_src, fragment_shader_src, None)
+            glium::Program::from_source(facade, &vertex_shader_src, &fragment_shader_src, None)
                 .context("no program")?;
 
         let image =
@@ -199,12 +153,7 @@ impl ImageQuad {
         )
         .unwrap();
 
-        Ok(ImageQuad {
-            vertices,
-            indices,
-            texture,
-            program,
-        })
+        Ok(ImageQuad { texture, program })
     }
 }
 
@@ -226,8 +175,8 @@ impl Renderable for ImageQuad {
         image: &self.texture };
 
         frame.draw(
-            &self.vertices,
-            &self.indices,
+            glium::vertex::EmptyVertexAttributes { len: 6 },
+            glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList),
             &self.program,
             &uniforms,
             params,
@@ -262,9 +211,24 @@ fn main() -> Result<()> {
         let mut target = display.draw();
         target.clear_color(0.0, 0.0, 1.0, 1.0);
 
-        quad.render(&mut target).unwrap();
+        let mut quad_params = glium::DrawParameters {
+            ..Default::default()
+        };
+        quad_params.backface_culling =
+            glium::draw_parameters::BackfaceCullingMode::CullCounterClockwise;
 
-        inabox.update(delta).context("must update").unwrap();
+        quad_params.viewport = Some(glium::Rect {
+            left: 0,
+            bottom: 0,
+            width: 100,
+            height: 100,
+        });
+        //quad_params.viewport = Some(glium::Rect {left:0, bottom:0,width:100,height:100});
+
+        quad.custom_render(&mut target, &quad_params).unwrap();
+        //quad.render(&mut target ).unwrap();
+
+        //        inabox.update(delta).context("must update").unwrap();
         inabox.render(&mut target).context("render error").unwrap();
 
         target.finish().unwrap();
